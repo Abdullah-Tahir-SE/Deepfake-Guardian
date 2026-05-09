@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEEPFAKE GUARDIAN | SECURE GATEWAY</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+    <!-- Link out to Unified CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12">
+</head>
+
+<body class="active-section-{{ active_section|default('landing') }}">
+    <!-- Background Unified Cyber Effects -->
+    <div class="tech-grid"></div>
+    <!-- Giant Background Crystal -->
+    <svg class="ambient-crystal" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <!-- Outer Track -->
+        <circle cx="50" cy="50" r="48" stroke="var(--neon-cyan-dim)" stroke-width="1.2" fill="none" class="bg-ring" />
+        
+        <!-- Large Glowing Shell -->
+        <path d="M50 5 L88 27 L88 73 L50 95 L12 73 L12 27 Z" stroke="var(--neon-cyan)" stroke-width="0.8" fill="rgba(0, 242, 255, 0.05)" class="bg-hex" />
+        
+        <!-- Medium Counter-Rotating Shell -->
+        <path d="M50 15 L78 32 L78 68 L50 85 L22 68 L22 32 Z" stroke="var(--neon-cyan)" stroke-width="0.6" fill="rgba(0, 242, 255, 0.08)" class="bg-hex-reverse" />
+        
+        <!-- NEW: Inner Crystal Core Array -->
+        <path d="M50 25 L65 40 L65 60 L50 75 L35 60 L35 40 Z" stroke="#ffffff" stroke-width="0.4" fill="none" class="bg-crystal-core" />
+        
+        <circle cx="50" cy="50" r="4" fill="var(--neon-cyan)" class="core-pulse" />
+        
+        <!-- Structural Core Links (Thickened) -->
+        <line x1="50" y1="50" x2="50" y2="5" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+        <line x1="50" y1="50" x2="88" y2="27" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+        <line x1="50" y1="50" x2="88" y2="73" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+        <line x1="50" y1="50" x2="50" y2="95" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+        <line x1="50" y1="50" x2="12" y2="73" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+        <line x1="50" y1="50" x2="12" y2="27" stroke="var(--neon-cyan)" stroke-width="0.5" opacity="0.6"/>
+    </svg>
+
+    <!-- Split Screen Layout Container -->
+    <div class="split-layout">
+
+        <!-- 1. LEFT COLUMN: VISUALS -->
+        <div class="left-column">
+            <h1 class="main-title">DEEPFAKE GUARDIAN</h1>
+            <div class="sub-title">Secure File Vault & Blockchain Audit Portal</div>
+
+            <!-- Feature List -->
+            <div class="feature-list">
+                <div class="feature-item"><span class="feature-icon"></span> Multi-Cipher File Encryption</div>
+                <div class="feature-item"><span class="feature-icon"></span> User-Bound Secure Vault Storage</div>
+                <div class="feature-item"><span class="feature-icon"></span> Tamper-Evident Blockchain Logs</div>
+            </div>
+        </div>
+
+        <!-- 2. RIGHT COLUMN: FORMS -->
+        <div class="right-column">
+
+            <!-- LANDING VIEW -->
+            <div id="landingView" class="view-section {% if active_section != 'landing' %}hidden{% endif %}">
+                <div class="landing-shell">
+                    <h1 class="main-title landing-main-title">DEEPFAKE GUARDIAN</h1>
+                    <div class="sub-title landing-sub-title">SECURE FILE VAULT & BLOCKCHAIN AUDIT PORTAL</div>
+                    <div class="glass-card narrow-card landing-card">
+                        <button onclick="switchView('loginView')" class="initialize-button landing-button" type="button">
+                            INITIALIZE GATEWAY
+                        </button>
+                        <div class="landing-status">
+                            <span class="landing-status-dot"></span>
+                            CONNECTION SECURED
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGIN VIEW -->
+            <div id="loginView" class="view-section {% if active_section != 'login' %}hidden{% endif %}">
+                <div class="glass-card narrow-card">
+                    <form id="loginForm" method="POST" action="/login">
+                        <div class="input-group">
+                            <label>Username</label>
+                            <input type="text" name="username" required autocomplete="off" id="emailInput" placeholder="e.g. John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" name="password" required autocomplete="off" id="passwordInput" placeholder="Enter password">
+                        </div>
+
+                        {% if error and active_section == 'login' and not lockout %}
+                        <div class="error-msg">{{ error }}</div>
+                        {% endif %}
+
+                        {% if success_msg and active_section == 'login' %}
+                        <div class="success-msg">{{ success_msg }}</div>
+                        {% endif %}
+
+                        <div id="lockoutDisplay" class="lockout-msg" style="display: none;"
+                            data-lockout="{{ lockout|default('0') }}">
+                            SYSTEM LOCKED<br>
+                            <span id="timerText"
+                                style="font-size: 1.8rem; margin-top: 5px; display: inline-block;"></span>s
+                        </div>
+
+                        <button type="submit" class="submit-btn" id="loginBtn">AUTHORIZE ID</button>
+                        <div class="auth-inline-actions">
+                            <button type="button" class="forgot-btn">FORGOT PASSWORD?</button>
+                            <div onclick="switchView('signupView')" class="link-text">SIGNUP</div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- RESET PASSWORD VIEW -->
+            <div id="resetView" class="view-section {% if active_section != 'reset' %}hidden{% endif %}">
+                <div class="glass-card narrow-card">
+                    <form method="POST" action="/forgot-password">
+                        <div class="input-group">
+                            <label>Registered Email</label>
+                            <input type="email" name="email" required autocomplete="off" placeholder="agent@enclave.gov" value="{{ reset_email|default('') }}">
+                        </div>
+                        <button type="submit" class="submit-btn">SEND OTP</button>
+                    </form>
+
+                    <form method="POST" action="/reset-password" style="margin-top: 1rem;">
+                        <div class="input-group">
+                            <label>Registered Email</label>
+                            <input type="email" name="email" required autocomplete="off" placeholder="agent@enclave.gov" value="{{ reset_email|default('') }}">
+                        </div>
+                        <div class="input-group">
+                            <label>OTP</label>
+                            <input type="text" name="otp" required autocomplete="off" placeholder="Enter 6-digit OTP">
+                        </div>
+                        <div class="input-group">
+                            <label>New Password</label>
+                            <input type="password" name="new_password" required autocomplete="off" placeholder="Enter new password">
+                        </div>
+                        <div class="input-group">
+                            <label>Confirm Password</label>
+                            <input type="password" name="confirm_password" required autocomplete="off" placeholder="Confirm new password">
+                        </div>
+
+                        {% if reset_error %}
+                        <div class="error-msg">{{ reset_error }}</div>
+                        {% endif %}
+
+                        {% if reset_success %}
+                        <div class="success-msg">{{ reset_success }}</div>
+                        {% endif %}
+
+                        <button type="submit" class="submit-btn">RESET PASSWORD</button>
+                        <div onclick="switchView('loginView')" class="link-text">BACK TO LOGIN</div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- SIGNUP VIEW -->
+            <div id="signupView" class="view-section {% if active_section != 'signup' %}hidden{% endif %}">
+                <div class="glass-card narrow-card">
+                    <form method="POST" action="/signup">
+                        <div class="input-group">
+                            <label>Full Name</label>
+                            <input type="text" name="name" required autocomplete="off" placeholder="e.g. John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label>Email Address</label>
+                            <input type="email" name="email" required autocomplete="off" placeholder="agent@enclave.gov">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" name="password" required autocomplete="off" placeholder="Create password">
+                        </div>
+
+                        {% if error and active_section == 'signup' %}
+                        <div class="error-msg">{{ error }}</div>
+                        {% endif %}
+
+                        <button type="submit" class="submit-btn">REGISTER SECURELY</button>
+                        <div onclick="switchView('loginView')" class="link-text">ALREADY REGISTERED? INITIATE LOGIN
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Unified Footer (Moved globally behind layout) -->
+    <footer class="footer">
+        <div class="footer-text">DEVELOPED BY DEVNEST TECH</div>
+    </footer>
+
+    <!-- Client-Side Routing & Logic (With Smooth Transitions) -->
+    <script>
+        function setActiveSectionClass(viewId) {
+            const body = document.body;
+            body.classList.remove('active-section-landing', 'active-section-login', 'active-section-signup');
+
+            if (viewId === 'landingView') {
+                body.classList.add('active-section-landing');
+            } else if (viewId === 'resetView') {
+                body.classList.add('active-section-reset');
+            } else if (viewId === 'signupView') {
+                body.classList.add('active-section-signup');
+            } else {
+                body.classList.add('active-section-login');
+            }
+        }
+
+        function switchView(viewId) {
+            setActiveSectionClass(viewId);
+
+            // Initiate the fade out mechanics across all views
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+
+            // Allow CSS transition opacity execution to clear out before firing visible state
+            setTimeout(() => {
+                document.getElementById(viewId).classList.remove('hidden');
+            }, 50);
+
+            // Clear prior form errors out dynamically so they don't persist falsely
+            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+        }
+
+        // Ensure the split-layout class state always matches the visible section on load.
+        if (!document.getElementById('landingView').classList.contains('hidden')) {
+            setActiveSectionClass('landingView');
+        } else if (!document.getElementById('resetView').classList.contains('hidden')) {
+            setActiveSectionClass('resetView');
+        } else if (!document.getElementById('signupView').classList.contains('hidden')) {
+            setActiveSectionClass('signupView');
+        } else {
+            setActiveSectionClass('loginView');
+        }
+
+        // Lockout timer logic securely mapped via HTML data prop
+        const lockoutDisplay = document.getElementById('lockoutDisplay');
+        let timeLeft = lockoutDisplay ? parseInt(lockoutDisplay.getAttribute('data-lockout') || '0', 10) : 0;
+
+        if (timeLeft > 0) {
+            const loginBtn = document.getElementById('loginBtn');
+            const timerText = document.getElementById('timerText');
+            const emailInput = document.getElementById('emailInput');
+            const pwdInput = document.getElementById('passwordInput');
+
+            loginBtn.disabled = true;
+            emailInput.disabled = true;
+            pwdInput.disabled = true;
+            lockoutDisplay.style.display = 'block';
+            timerText.innerText = timeLeft;
+
+            const timerInterval = setInterval(() => {
+                timeLeft--;
+                timerText.innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    loginBtn.disabled = false;
+                    emailInput.disabled = false;
+                    pwdInput.disabled = false;
+                    lockoutDisplay.style.display = 'none';
+
+                    const errorMsg = document.querySelector('#loginView .error-msg');
+                    if (errorMsg) errorMsg.style.display = 'none';
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+
+</html>

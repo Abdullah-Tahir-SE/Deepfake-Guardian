@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CipherVault | Human Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=13">
+    <style>
+        .liveness-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            gap: 2rem;
+        }
+        @media (max-width: 900px) {
+            .liveness-page {
+                flex-direction: column;
+                padding: 1rem;
+            }
+        }
+        .liveness-container {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 2rem;
+            width: min(1000px, 95vw);
+        }
+        @media (max-width: 900px) {
+            .liveness-container {
+                flex-direction: column;
+            }
+        }
+        .liveness-video-side {
+            flex: 1.2;
+            position: relative;
+            border: 2px solid rgba(0, 242, 255, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 4/3;
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
+        }
+        .liveness-video-side video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .liveness-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .liveness-info-side {
+            flex: 0.8;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: left;
+        }
+        .liveness-timer {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.5);
+            margin: 1rem 0;
+            font-family: monospace;
+        }
+        .liveness-status {
+            font-size: 0.9rem;
+            color: #9bb1c8;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        .score-display {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--neon-cyan);
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 242, 255, 0.1);
+            border-left: 3px solid var(--neon-cyan);
+            display: none;
+        }
+        .liveness-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: auto;
+        }
+        .cooldown-banner {
+            color: #ff6b8a;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="tech-grid"></div>
+    <div class="liveness-page">
+        <div class="liveness-container glass-card" style="padding: 2.5rem; width: auto; max-width: 1100px;">
+            <div class="liveness-video-side">
+                <video id="cam" autoplay playsinline muted></video>
+                <canvas id="overlay" class="liveness-overlay"></canvas>
+            </div>
+            
+            <div class="liveness-info-side">
+                <h2 class="section-title" style="margin-bottom: 1rem; text-align: left;">Biometric Scan</h2>
+                <div id="cooldownBanner" class="cooldown-banner" style="display: none;"></div>
+                <p class="liveness-status" id="hint">Position your face within the frame. Our AI will verify liveness in real-time. Scan lasts 10 seconds.</p>
+                
+                <div class="liveness-timer" id="timerDisplay">0.0s</div>
+                
+                <div class="liveness-status" id="statusMsg" style="margin-top: 1rem; color: var(--neon-cyan);"></div>
+                
+                <div class="liveness-actions">
+                    <button type="button" class="submit-btn" id="startBtn">INITIALIZE SCAN</button>
+                    <a href="{{ url_for('logout') }}" class="link-text">Cancel & logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <canvas id="cap" width="640" height="480" style="display: none;"></canvas>
+
+    <script>
+        const DETECTION_TARGET_MS = 10000;
+        const FRAME_MS = 400;
+        const video = document.getElementById('cam');
+        const overlay = document.getElementById('overlay');
+        const overlayCtx = overlay.getContext('2d');
+        const canvas = document.getElementById('cap');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const statusMsg = document.getElementById('statusMsg');
+        const cooldownBanner = document.getElementById('cooldownBanner');
+
+        let stream = null;
+        let capturing = false;
+        let detectionTimeAccumulated = 0;
+        let faceCurrentlyDetected = false;
+        let cooldownLeft = Number("{{ cooldown_remaining|default(0) }}");
+
+        function setCooldownBanner(sec) {
+            if (sec > 0) {
+                cooldownBanner.style.display = 'block';
+                cooldownBanner.textContent = 'Lockout Active: ' + sec + 's';
+                startBtn.disabled = true;
+            } else {
+                cooldownBanner.style.display = 'none';
+                startBtn.disabled = false;
+            }
+        }
+
+        function tickCooldown() {
+            if (cooldownLeft <= 0) {
+                setCooldownBanner(0);
+                return;
+            }
+            setCooldownBanner(cooldownLeft);
+            cooldownLeft -= 1;
+            setTimeout(tickCooldown, 1000);
+        }
+
+        if (cooldownLeft > 0) {
+            tickCooldown();
+        }
+
+        async function ensureCamera() {
+            if (stream) return;
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: false
+            });
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+            };
+        }
+
+        function drawDetection(box) {
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            if (!box) return;
+
+            const [x, y, w, h] = box;
+            overlayCtx.strokeStyle = '#00f2ff';
+            overlayCtx.lineWidth = 4;
+            overlayCtx.strokeRect(x, y, w, h);
+            
+            overlayCtx.fillStyle = '#00f2ff';
+            overlayCtx.font = 'bold 16px Outfit, sans-serif';
+            overlayCtx.fillText('FACE DETECTED', x, y - 10);
+        }
+
+        startBtn.addEventListener('click', async () => {
+            if (capturing || cooldownLeft > 0) return;
+            statusMsg.textContent = 'Initializing biometric system...';
+            capturing = true;
+            startBtn.disabled = true;
+            detectionTimeAccumulated = 0;
+            
+            try {
+                await ensureCamera();
+            } catch (e) {
+                statusMsg.textContent = 'Camera access denied.';
+                capturing = false;
+                startBtn.disabled = false;
+                return;
+            }
+
+            const beginRes = await fetch('/api/liveness/begin', { method: 'POST' });
+            if (beginRes.status === 429) {
+                const d = await beginRes.json().catch(() => ({}));
+                cooldownLeft = d.cooldown || 10;
+                tickCooldown();
+                capturing = false;
+                return;
+            }
+            if (!beginRes.ok) {
+                statusMsg.textContent = 'Session error.';
+                capturing = false;
+                startBtn.disabled = false;
+                return;
+            }
+
+            statusMsg.textContent = 'Scanning... Keep your face in view for 10 seconds.';
+            
+            async function sendFrame() {
+                if (!capturing) return;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob(async (blob) => {
+                    if (!blob || !capturing) return;
+                    const fd = new FormData();
+                    fd.append('frame', blob, 'frame.jpg');
+                    try {
+                        const res = await fetch('/api/liveness/frame', { method: 'POST', body: fd });
+                        const result = await res.json();
+                        faceCurrentlyDetected = result.face_detected;
+                        if (faceCurrentlyDetected) {
+                            drawDetection(result.box);
+                        } else {
+                            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+                        }
+                    } catch (_) {
+                        faceCurrentlyDetected = false;
+                    }
+                }, 'image/jpeg', 0.85);
+            }
+
+            const frameTimer = setInterval(sendFrame, FRAME_MS);
+
+            const tickTimer = setInterval(() => {
+                if (faceCurrentlyDetected) {
+                    detectionTimeAccumulated += 100;
+                }
+                
+                const left = Math.max(0, DETECTION_TARGET_MS - detectionTimeAccumulated);
+                timerDisplay.textContent = ((DETECTION_TARGET_MS - left) / 1000).toFixed(1) + 's';
+                
+                if (detectionTimeAccumulated >= DETECTION_TARGET_MS) {
+                    clearInterval(tickTimer);
+                    clearInterval(frameTimer);
+                    capturing = false;
+                    completeVerification();
+                }
+            }, 100);
+        });
+
+        async function completeVerification() {
+            statusMsg.textContent = 'Capturing final biometric scan...';
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            // Final capture
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+            
+            const fd = new FormData();
+            fd.append('photo', photoBlob, 'login_scan.jpg');
+
+            statusMsg.textContent = 'Analyzing and encrypting biometric data...';
+            
+            const res = await fetch('/api/liveness/finish', { method: 'POST', body: fd });
+            const data = await res.json().catch(() => ({}));
+
+            if (data.status === 'human') {
+                statusMsg.textContent = 'Authentication successful.';
+                setTimeout(() => window.location.href = data.redirect, 1000);
+                return;
+            }
+            
+            if (data.status === 'not_human') {
+                cooldownLeft = data.cooldown || 10;
+                statusMsg.textContent = 'Identity NOT verified.';
+                tickCooldown();
+                return;
+            }
+
+            statusMsg.textContent = 'Verification error.';
+            startBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>
